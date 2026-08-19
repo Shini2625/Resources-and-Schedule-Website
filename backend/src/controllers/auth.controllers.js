@@ -78,3 +78,27 @@ export const loginUser = async (req, res, next) => {
     return next(error);
   }
 };
+
+export const logoutUser = async (req, res) => {
+  return ApiResponse.success(res, 200, {}, 'Logout successful.');
+};
+
+export const getCurrentUser = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found.');
+    }
+
+    return ApiResponse.success(res, 200, {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+    }, 'Current user fetched successfully.');
+  } catch (error) {
+    return next(error);
+  }
+};
