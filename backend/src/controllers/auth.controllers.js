@@ -1,6 +1,19 @@
+import jwt from 'jsonwebtoken';
+
 import { User } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+
+const setRefreshTokenCookie = (res, token) => {
+  res.cookie('refreshToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
 
 export const registerUser = async (req, res, next) => {
   try {
@@ -32,7 +45,12 @@ export const registerUser = async (req, res, next) => {
       password,
     });
 
-    const token = user.generateAccessToken();
+    const accessToken = user.generateAccessToken();
+    const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    setRefreshTokenCookie(res, refreshToken);
 
     return ApiResponse.success(
       res,
@@ -45,7 +63,7 @@ export const registerUser = async (req, res, next) => {
           email: user.email,
           role: user.role,
         },
-        token,
+        token: accessToken,
       },
       'User registered successfully.'
     );
@@ -78,7 +96,12 @@ export const loginUser = async (req, res, next) => {
       throw new ApiError(401, 'Invalid credentials.');
     }
 
-    const token = user.generateAccessToken();
+    const accessToken = user.generateAccessToken();
+    const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    setRefreshTokenCookie(res, refreshToken);
 
     return ApiResponse.success(
       res,
@@ -91,7 +114,7 @@ export const loginUser = async (req, res, next) => {
           email: user.email,
           role: user.role,
         },
-        token,
+        token: accessToken,
       },
       'Login successful.'
     );
@@ -101,6 +124,12 @@ export const loginUser = async (req, res, next) => {
 };
 
 export const logoutUser = async (req, res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
   return ApiResponse.success(res, 200, {}, 'Logout successful.');
 };
 
