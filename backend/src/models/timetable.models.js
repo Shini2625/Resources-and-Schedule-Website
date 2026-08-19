@@ -1,8 +1,8 @@
 import { DataTypes } from 'sequelize';
 
 export default (sequelize) => {
-  const Course = sequelize.define(
-    'Course',
+  const TimetableEntry = sequelize.define(
+    'TimetableEntry',
     {
       id: {
         type: DataTypes.INTEGER,
@@ -13,32 +13,32 @@ export default (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      code: {
+      dayOfWeek: {
+        type: DataTypes.ENUM(
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday'
+        ),
+        allowNull: false,
+      },
+      startTime: {
+        type: DataTypes.TIME,
+        allowNull: false,
+      },
+      endTime: {
+        type: DataTypes.TIME,
+        allowNull: false,
+      },
+      location: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      year: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 1,
-      },
-      semester: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'Semester 1',
-      },
-      description: {
-        type: DataTypes.TEXT,
         allowNull: true,
       },
-      status: {
-        type: DataTypes.ENUM('active', 'completed'),
-        allowNull: false,
-        defaultValue: 'active',
-      },
-      credits: {
-        type: DataTypes.INTEGER,
+      notes: {
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       userId: {
@@ -51,10 +51,10 @@ export default (sequelize) => {
       },
     },
     {
-      tableName: 'courses',
+      tableName: 'timetable_entries',
       timestamps: true,
     }
   );
 
-  return Course;
+  return TimetableEntry;
 };

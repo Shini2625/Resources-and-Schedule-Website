@@ -4,6 +4,11 @@ import cors from 'cors';
 
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import courseRoutes from './routes/course.routes.js';
+import resourceRoutes from './routes/resource.routes.js';
+import timetableRoutes from './routes/timetable.routes.js';
+import todoRoutes from './routes/todo.routes.js';
+import motivationRoutes from './routes/motivation.routes.js';
 
 dotenv.config();
 
@@ -28,6 +33,11 @@ app.get('/', (req, res) => {
 
 app.use('/api/v1', healthRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/courses', courseRoutes);
+app.use('/api/v1/resources', resourceRoutes);
+app.use('/api/v1/timetable', timetableRoutes);
+app.use('/api/v1/todos', todoRoutes);
+app.use('/api/v1/motivation', motivationRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled application error:', err);

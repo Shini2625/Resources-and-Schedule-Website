@@ -1,8 +1,8 @@
 import { DataTypes } from 'sequelize';
 
 export default (sequelize) => {
-  const Course = sequelize.define(
-    'Course',
+  const TodoItem = sequelize.define(
+    'TodoItem',
     {
       id: {
         type: DataTypes.INTEGER,
@@ -13,33 +13,32 @@ export default (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
-      year: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 1,
-      },
-      semester: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'Semester 1',
-      },
       description: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      status: {
-        type: DataTypes.ENUM('active', 'completed'),
-        allowNull: false,
-        defaultValue: 'active',
-      },
-      credits: {
-        type: DataTypes.INTEGER,
+      dueDate: {
+        type: DataTypes.DATE,
         allowNull: true,
+      },
+      priority: {
+        type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
+        allowNull: false,
+        defaultValue: 'medium',
+      },
+      category: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'general',
+      },
+      colorCode: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      completed: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
       userId: {
         type: DataTypes.INTEGER,
@@ -51,10 +50,10 @@ export default (sequelize) => {
       },
     },
     {
-      tableName: 'courses',
+      tableName: 'todo_items',
       timestamps: true,
     }
   );
 
-  return Course;
+  return TodoItem;
 };

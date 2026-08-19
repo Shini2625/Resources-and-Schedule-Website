@@ -1,8 +1,8 @@
 import { DataTypes } from 'sequelize';
 
 export default (sequelize) => {
-  const Course = sequelize.define(
-    'Course',
+  const Resource = sequelize.define(
+    'Resource',
     {
       id: {
         type: DataTypes.INTEGER,
@@ -13,48 +13,49 @@ export default (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      code: {
-        type: DataTypes.STRING,
+      category: {
+        type: DataTypes.ENUM(
+          'notes',
+          'references',
+          'tutorials',
+          'solutions',
+          'pyqs',
+          'grading',
+          'custom'
+        ),
         allowNull: false,
-        unique: true,
       },
-      year: {
-        type: DataTypes.INTEGER,
+      type: {
+        type: DataTypes.ENUM('file', 'link', 'text'),
         allowNull: false,
-        defaultValue: 1,
-      },
-      semester: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'Semester 1',
+        defaultValue: 'file',
       },
       description: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      status: {
-        type: DataTypes.ENUM('active', 'completed'),
-        allowNull: false,
-        defaultValue: 'active',
-      },
-      credits: {
-        type: DataTypes.INTEGER,
+      fileUrl: {
+        type: DataTypes.STRING,
         allowNull: true,
       },
-      userId: {
+      externalLink: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      courseId: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-          model: 'users',
+          model: 'courses',
           key: 'id',
         },
       },
     },
     {
-      tableName: 'courses',
+      tableName: 'resources',
       timestamps: true,
     }
   );
 
-  return Course;
+  return Resource;
 };
