@@ -1,44 +1,54 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
 import { User } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
-
 export const registerUser = async (req, res, next) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, username, email, password } = req.body;
 
     if (!fullName || !email || !password) {
       throw new ApiError(400, 'Full name, email, and password are required.');
     }
 
-    const existingUser = await User.findOne({ where: { email } });
+    const existingUser = await User.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
     if (existingUser) {
       throw new ApiError(409, 'User already exists with that email address.');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (username) {
+      const existingUsername = await User.findOne({ where: { username: username.trim() } });
+      if (existingUsername) {
+        throw new ApiError(409, 'This username is already taken.');
+      }
+    }
+
     const user = await User.create({
       fullName,
-      email,
-      password: hashedPassword,
+      username: username ? username.trim() : null,
+      email: email.toLowerCase(),
+      password,
     });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: '7d',
-    });
+    const token = user.generateAccessToken();
 
-    return ApiResponse.success(res, 201, {
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
+    return ApiResponse.success(
+      res,
+      201,
+      {
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+        token,
       },
-      token,
-    }, 'User registered successfully.');
+      'User registered successfully.'
+    );
   } catch (error) {
     return next(error);
   }
@@ -46,34 +56,45 @@ export const registerUser = async (req, res, next) => {
 
 export const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
+    const identifier = email || username;
 
-    if (!email || !password) {
-      throw new ApiError(400, 'Email and password are required.');
+    if (!identifier || !password) {
+      throw new ApiError(400, 'Email or username and password are required.');
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({
+      where: identifier.includes('@')
+        ? { email: identifier.toLowerCase() }
+        : { username: identifier.trim() },
+    });
+
     if (!user) {
       throw new ApiError(404, 'User not found.');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.isPasswordCorrect(password);
     if (!isPasswordValid) {
       throw new ApiError(401, 'Invalid credentials.');
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: '7d',
-    });
+    const token = user.generateAccessToken();
 
-    return ApiResponse.success(res, 200, {
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
+    return ApiResponse.success(
+      res,
+      200,
+      {
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+        token,
       },
-      token,
-    }, 'Login successful.');
+      'Login successful.'
+    );
   } catch (error) {
     return next(error);
   }
@@ -93,11 +114,18 @@ export const getCurrentUser = async (req, res, next) => {
       throw new ApiError(404, 'User not found.');
     }
 
-    return ApiResponse.success(res, 200, {
-      id: user.id,
-      fullName: user.fullName,
-      email: user.email,
-    }, 'Current user fetched successfully.');
+    return ApiResponse.success(
+      res,
+      200,
+      {
+        id: user.id,
+        fullName: user.fullName,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      'Current user fetched successfully.'
+    );
   } catch (error) {
     return next(error);
   }

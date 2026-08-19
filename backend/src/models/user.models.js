@@ -1,3 +1,5 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { DataTypes } from 'sequelize';
 
 export default (sequelize) => {
@@ -48,8 +50,32 @@ export default (sequelize) => {
     {
       tableName: 'users',
       timestamps: true,
+      hooks: {
+        beforeSave: async (user) => {
+          if (user.changed('password')) {
+            user.password = await bcrypt.hash(user.password, 10);
+          }
+        },
+      },
     }
   );
+
+  User.prototype.isPasswordCorrect = async function (password) {
+    return bcrypt.compare(password, this.password);
+  };
+
+  User.prototype.generateAccessToken = function () {
+    return jwt.sign(
+      {
+        id: this.id,
+        email: this.email,
+        fullName: this.fullName,
+        role: this.role,
+      },
+      process.env.JWT_SECRET || 'change-me-in-production',
+      { expiresIn: process.env.JWT_EXPIRY || '7d' }
+    );
+  };
 
   return User;
 };

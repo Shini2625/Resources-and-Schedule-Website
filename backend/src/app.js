@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import refreshRoutes from './routes/refresh.routes.js';
 import courseRoutes from './routes/course.routes.js';
 import resourceRoutes from './routes/resource.routes.js';
 import timetableRoutes from './routes/timetable.routes.js';
@@ -23,6 +25,7 @@ app.use(
 
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
+app.use(cookieParser());
 
 app.get('/', (req, res) => {
   return res.status(200).json({
@@ -33,6 +36,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/v1', healthRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1', refreshRoutes);
 app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/resources', resourceRoutes);
 app.use('/api/v1/timetable', timetableRoutes);

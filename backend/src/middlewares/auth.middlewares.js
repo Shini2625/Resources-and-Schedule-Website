@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 
+import { User } from '../models/index.js';
+
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 
-export const verifyToken = (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
@@ -15,7 +17,22 @@ export const verifyToken = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const user = await User.findByPk(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User no longer exists.',
+      });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+    };
+
     return next();
   } catch (error) {
     return res.status(401).json({
