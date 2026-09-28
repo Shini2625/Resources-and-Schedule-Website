@@ -321,7 +321,14 @@ function DashboardPage({ user, courses, schedule, todos, activeMotivation, onNav
   return (
     <>
       <PageHeading eyebrow={prettyDate()} title={`Good to see you, ${user.fullName?.split(' ')[0] || 'there'}.`} subtitle="A little focus today can make tomorrow feel lighter." action={<button className="button button-primary" onClick={() => onNavigate('tasks')}><Plus size={17} /> Add a task</button>} />
-      <section className="panel note-panel dashboard-note"><div className="dashboard-note-head"><span className="note-icon"><Quote size={18} /></span><span><span className="eyebrow">A NOTE TO SELF</span><span className="note-caption">A MOMENT FOR YOU</span></span></div><blockquote>{activeMotivation?.quote || '“Success is the sum of small efforts, repeated day in and day out.”'}</blockquote><button className="text-link" onClick={() => onNavigate('motivation')}>Your motivation space <ArrowRight size={14} /></button></section>
+      <section className="panel note-panel dashboard-note">
+        <div className="dashboard-note-head">
+          <span className="note-icon"><Quote size={18} /></span>
+          <span><span className="note-caption">A MOMENT FOR YOU</span><span className="eyebrow">A NOTE TO SELF</span></span>
+        </div>
+        <blockquote>{activeMotivation?.quote || '“Success is the sum of small efforts, repeated day in and day out.”'}</blockquote>
+        <button className="text-link" onClick={() => onNavigate('motivation')}>Your motivation space <ArrowRight size={14} /></button>
+      </section>
       <section className="welcome-banner">
         <div className="welcome-copy"><span className="banner-kicker"><Sparkles size={14} /> YOUR DAILY REMINDER</span><h2>{activeMotivation?.quote || 'Keep showing up for the work that matters.'}</h2><p>Your pace is allowed to be your own. Start where you are.</p><button className="banner-link" onClick={() => onNavigate('motivation')}>Visit your motivation space <ArrowRight size={15} /></button></div>
         <div className="banner-art" aria-hidden="true"><div className="sun-disc" /><div className="art-leaf leaf-one" /><div className="art-leaf leaf-two" /><div className="art-leaf leaf-three" /><div className="art-line art-line-one" /><div className="art-line art-line-two" /><span className="art-orbit" /></div>
