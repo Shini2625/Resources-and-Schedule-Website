@@ -30,7 +30,7 @@ function App() {
       }
 
       setUser(data.data);
-    } catch (err) {
+    } catch {
       setToken('');
       localStorage.removeItem('accessToken');
       setUser(null);
@@ -39,6 +39,7 @@ function App() {
 
   useEffect(() => {
     if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- This call starts an async request; state changes occur after the response.
       fetchCurrentUser(token);
     }
   }, [token]);

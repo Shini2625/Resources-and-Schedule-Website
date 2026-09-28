@@ -5,6 +5,7 @@ import { User } from '../models/index.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 
 export const verifyToken = async (req, res, next) => {
+  let decoded;
   try {
     const authHeader = req.headers.authorization || '';
     let token = null;
@@ -24,7 +25,15 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid or expired token.',
+    });
+  }
+
+  try {
     const user = await User.findByPk(decoded.id);
 
     if (!user) {
@@ -44,9 +53,6 @@ export const verifyToken = async (req, res, next) => {
 
     return next();
   } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired token.',
-    });
+    return next(error);
   }
 };
