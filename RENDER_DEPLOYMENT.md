@@ -45,11 +45,13 @@ If you add a custom domain or change the Render Static Site URL later, update th
 
 Password reset links are delivered through an SMTP email provider. In the **backend Web Service** environment settings, add:
 
+For a plain-English SMTP explanation and provider-specific credential steps, see [SMTP_SETUP.md](SMTP_SETUP.md).
+
 - `SMTP_HOST` = your provider's SMTP host
 - `SMTP_PORT` = `587` for STARTTLS, or `465` for implicit TLS
 - `SMTP_USER` = your SMTP username
 - `SMTP_PASS` = your SMTP password or provider-issued SMTP key
-- `EMAIL_FROM` = a sender address verified with your email provider
+- `EMAIL_FROM` = a sender address verified with your email provider (e.g. `Jacker <verified@yourdomain.com>`; Jacker sets the display name to `Jacker`)
 - `FRONTEND_URL` = the exact frontend origin, such as `https://jacker.onrender.com`
 - `SMTP_SECURE` = optional; use `true` for port `465` (the backend also enables secure mode automatically on `465`)
 

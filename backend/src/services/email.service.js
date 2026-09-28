@@ -36,6 +36,8 @@ export const buildPasswordResetUrl = (token) => {
 
 export const sendPasswordResetEmail = async ({ to, resetUrl }) => {
   const port = Number(process.env.SMTP_PORT || 587);
+  const configuredFrom = String(process.env.EMAIL_FROM || '').trim();
+  const senderAddress = configuredFrom.match(/<([^<>]+)>/)?.[1]?.trim() || configuredFrom;
   const safeResetUrl = resetUrl.replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[character]);
@@ -53,7 +55,7 @@ export const sendPasswordResetEmail = async ({ to, resetUrl }) => {
   });
 
   return transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+    from: { name: 'Jacker', address: senderAddress },
     to,
     subject: 'Reset your Jacker password',
     text: [

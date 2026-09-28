@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
+  Bell,
   BookOpen,
   CalendarDays,
   Check,
@@ -27,6 +28,7 @@ import {
   Trash2,
   UploadCloud,
   UserRound,
+  Volume2,
   X,
 } from 'lucide-react';
 import { apiRequest } from './lib/api';
@@ -42,6 +44,30 @@ const NAV_ITEMS = [
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const CATEGORIES = ['notes', 'references', 'tutorials', 'solutions', 'pyqs', 'grading', 'custom', 'slides'];
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+const NOTIFICATION_PREFERENCES_KEY = 'jacker-notification-preferences';
+const DEFAULT_NOTIFICATION_PREFERENCES = { desktop: false, sound: false, deadlineAlerts: true, deadlineSound: true, deadlineLeadDays: 1 };
+
+const readNotificationPreferences = () => {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(NOTIFICATION_PREFERENCES_KEY) || '{}');
+    const leadDays = Number(saved.deadlineLeadDays);
+    return {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      ...saved,
+      deadlineLeadDays: [0, 1, 3].includes(leadDays) ? leadDays : DEFAULT_NOTIFICATION_PREFERENCES.deadlineLeadDays,
+    };
+  } catch {
+    return DEFAULT_NOTIFICATION_PREFERENCES;
+  }
+};
+
+const getCalendarDay = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+};
+const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
 const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'S';
@@ -83,6 +109,16 @@ function App() {
   const [screenError, setScreenError] = useState('');
   const [toast, setToast] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState(readNotificationPreferences);
+  const notificationPreferencesRef = useRef(notificationPreferences);
+  const audioContextRef = useRef(null);
+
+  const updateNotificationPreferences = useCallback((patch) => {
+    const next = { ...notificationPreferencesRef.current, ...patch };
+    notificationPreferencesRef.current = next;
+    setNotificationPreferences(next);
+    try { window.localStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(next)); } catch { /* Preferences still work for this session. */ }
+  }, []);
 
   const changeToken = useCallback((nextToken) => {
     if (nextToken) {
@@ -94,8 +130,88 @@ function App() {
     }
   }, []);
 
-  const notify = useCallback((message, kind = 'success') => {
-    setToast({ message, kind, id: Date.now() });
+  const playPing = useCallback((deadline = false) => {
+    if (typeof window === 'undefined') return;
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) return;
+    try {
+      const context = audioContextRef.current || new AudioContextConstructor();
+      audioContextRef.current = context;
+      const emit = () => {
+        const start = context.currentTime + 0.01;
+        (deadline ? [660, 880] : [880]).forEach((frequency, index) => {
+          const toneStart = start + index * 0.15;
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, toneStart);
+          gain.gain.setValueAtTime(0.0001, toneStart);
+          gain.gain.exponentialRampToValueAtTime(0.09, toneStart + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.14);
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+          oscillator.start(toneStart);
+          oscillator.stop(toneStart + 0.15);
+        });
+      };
+      if (context.state === 'suspended') context.resume().then(emit).catch(() => {});
+      else emit();
+    } catch {
+      // Audio is an optional enhancement; never block a notification on it.
+    }
+  }, []);
+
+  const sendDesktopNotification = useCallback((message, tag) => {
+    if (!notificationPreferencesRef.current.desktop || !('Notification' in window) || window.Notification.permission !== 'granted' || document.visibilityState !== 'hidden') return;
+    try { new window.Notification('Jacker', { body: message, tag, renotify: false }); } catch { /* The in-app toast remains available. */ }
+  }, []);
+
+  const notify = useCallback((message, kind = 'success', options = {}) => {
+    const id = Date.now();
+    const preferences = notificationPreferencesRef.current;
+    setToast({ message, kind, id });
+    if (options.sound ?? preferences.sound) playPing(Boolean(options.deadline));
+    if (options.desktop ?? preferences.desktop) sendDesktopNotification(message, options.tag || `jacker-notice-${id}`);
+  }, [playPing, sendDesktopNotification]);
+
+  const toggleDesktopNotifications = useCallback(async (enabled) => {
+    if (!enabled) {
+      updateNotificationPreferences({ desktop: false });
+      return;
+    }
+    if (!('Notification' in window)) {
+      notify('This browser does not support desktop notifications.', 'error');
+      return;
+    }
+    try {
+      const permission = window.Notification.permission === 'granted' ? 'granted' : await window.Notification.requestPermission();
+      if (permission === 'granted') {
+        updateNotificationPreferences({ desktop: true });
+        notify('Desktop notifications are enabled.');
+      } else {
+        updateNotificationPreferences({ desktop: false });
+        notify(permission === 'denied' ? 'Allow notifications for Jacker in your browser settings to enable desktop alerts.' : 'Desktop notification permission was not granted.', 'error');
+      }
+    } catch {
+      notify('Could not request desktop notification permission.', 'error');
+    }
+  }, [notify, updateNotificationPreferences]);
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextConstructor) return;
+      try {
+        audioContextRef.current ||= new AudioContextConstructor();
+        if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().catch(() => {});
+      } catch { /* The test-ping button can retry when available. */ }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
   }, []);
 
   const loadData = useCallback(async (activeToken) => {
@@ -145,9 +261,46 @@ function App() {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const timer = window.setTimeout(() => setToast(null), 3600);
+    const timer = window.setTimeout(() => setToast(null), toast.kind === 'deadline' ? 8500 : 3600);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!token || !user || !notificationPreferences.deadlineAlerts) return undefined;
+    const checkDeadlines = () => {
+      const preferences = notificationPreferencesRef.current;
+      if (!preferences.deadlineAlerts) return;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayKey = dateKey(today);
+      const leadDays = Number(preferences.deadlineLeadDays) || 0;
+      const reminders = [];
+      todos.forEach((item) => {
+        if (item.completed || !item.dueDate) return;
+        const dueDay = getCalendarDay(item.dueDate);
+        if (!dueDay) return;
+        const daysUntil = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000);
+        if (daysUntil > leadDays) return;
+        const dueKey = dateKey(dueDay);
+        const seenKey = `jacker:deadline:${user.id}:${item.id}:${dueKey}:${todayKey}`;
+        if (window.localStorage.getItem(seenKey)) return;
+        window.localStorage.setItem(seenKey, '1');
+        reminders.push({ ...item, daysUntil });
+      });
+      if (!reminders.length) return;
+      const describe = ({ title, daysUntil }) => {
+        const when = daysUntil < 0 ? `overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'}` : daysUntil === 0 ? 'due today' : daysUntil === 1 ? 'due tomorrow' : `due in ${daysUntil} days`;
+        return `“${title}” is ${when}`;
+      };
+      const message = reminders.length === 1
+        ? `Deadline reminder: ${describe(reminders[0])}.`
+        : `${reminders.length} deadlines need attention: ${reminders.slice(0, 3).map(describe).join('; ')}${reminders.length > 3 ? '; and more' : ''}.`;
+      notify(message, 'deadline', { sound: preferences.deadlineSound, desktop: preferences.desktop, deadline: true, tag: `jacker-deadline-${user.id}-${todayKey}` });
+    };
+    checkDeadlines();
+    const timer = window.setInterval(checkDeadlines, 60_000);
+    return () => window.clearInterval(timer);
+  }, [token, user, todos, notificationPreferences.deadlineAlerts, notify]);
 
   const reload = useCallback(async () => {
     await loadData(token);
@@ -216,10 +369,10 @@ function App() {
           {page === 'schedule' && <SchedulePage schedule={schedule} courses={courses} token={token} onTokenChange={changeToken} onReload={reload} notify={notify} />}
           {page === 'tasks' && <TasksPage todos={todos} courses={courses} token={token} onTokenChange={changeToken} onReload={reload} onToggle={toggleTodo} notify={notify} />}
           {page === 'motivation' && <MotivationPage motivations={motivations} token={token} onTokenChange={changeToken} onReload={reload} notify={notify} />}
-          {page === 'profile' && <ProfilePage user={user} token={token} onTokenChange={changeToken} onUser={setUser} notify={notify} onLogout={handleLogout} />}
+          {page === 'profile' && <ProfilePage user={user} token={token} onTokenChange={changeToken} onUser={setUser} notify={notify} onLogout={handleLogout} notificationPreferences={notificationPreferences} onPreferenceChange={updateNotificationPreferences} onToggleDesktopNotifications={toggleDesktopNotifications} onTestSound={() => playPing(true)} />}
         </main>
       </div>
-      {toast && <div className={`toast toast-${toast.kind}`} role="status"><span className="toast-mark">{toast.kind === 'error' ? <X size={16} /> : <Check size={16} />}</span>{toast.message}</div>}
+      {toast && <div className={`toast toast-${toast.kind}`} role="status"><span className="toast-mark">{toast.kind === 'error' ? <X size={16} /> : toast.kind === 'deadline' ? <Bell size={16} /> : <Check size={16} />}</span><strong className="toast-brand">Jacker</strong>{toast.message}</div>}
     </div>
   );
 }
@@ -620,13 +773,31 @@ function MotivationPage({ motivations, token, onTokenChange, onReload, notify })
   </>;
 }
 
-function ProfilePage({ user, token, onTokenChange, onUser, notify, onLogout }) {
+function ProfilePage({ user, token, onTokenChange, onUser, notify, onLogout, notificationPreferences, onPreferenceChange, onToggleDesktopNotifications, onTestSound }) {
   const [saving, setSaving] = useState(false);
+  const hasDesktopNotificationSupport = typeof window !== 'undefined' && 'Notification' in window;
+  const desktopPermission = hasDesktopNotificationSupport ? window.Notification.permission : 'unsupported';
   const submit = async (event) => { event.preventDefault(); setSaving(true); const form = new FormData(event.currentTarget); try { const updated = await apiRequest('/auth/profile', { method: 'PATCH', token, onTokenChange, body: { fullName: form.get('fullName'), username: form.get('username'), bio: form.get('bio') } }); onUser(updated); notify('Profile saved.'); } catch (error) { notify(error.message || 'Could not update profile.', 'error'); } finally { setSaving(false); } };
   return <><PageHeading eyebrow="MAKE IT YOURS" title="Profile & settings" subtitle="A few details make this space feel like yours." />
     <div className="profile-layout"><section className="panel profile-card"><div className="profile-avatar avatar">{initials(user.fullName)}</div><h2>{user.fullName}</h2><p>{user.email}</p><span className="member-pill"><GraduationCap size={14} /> Student workspace</span><div className="profile-divider" /><div className="profile-fact"><span>Member since</span><strong>{user.createdAt ? shortDate(user.createdAt) : 'Welcome!'}</strong></div><div className="profile-fact"><span>Account email</span><strong>{user.email}</strong></div></section>
       <section className="panel profile-form-panel"><div className="panel-heading"><div><span className="eyebrow">PERSONAL DETAILS</span><h2>Your information</h2></div><UserRound size={19} className="panel-heading-icon" /></div><form className="form-stack" onSubmit={submit}><label>Full name<input name="fullName" defaultValue={user.fullName || ''} required /></label><label>Username<input name="username" defaultValue={user.username || ''} placeholder="Optional username" /></label><label>About you<textarea name="bio" defaultValue={user.bio || ''} rows="4" placeholder="What are you studying? What are you working toward?" /></label><div className="modal-actions"><button className="button button-primary" disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button></div></form><div className="profile-divider" /><div className="signout-row"><div><strong>Need a break?</strong><span>You can sign out of this device at any time.</span></div><button className="button button-outline" onClick={onLogout}><LogOut size={15} /> Sign out</button></div></section></div>
+    <section className="panel notification-settings-panel">
+      <div className="panel-heading"><div><span className="eyebrow">STAY IN THE LOOP</span><h2>Notifications</h2><p>Desktop notices use the name Jacker. Your preferences are saved in this browser.</p></div><Bell size={20} className="panel-heading-icon" /></div>
+      <div className="notification-settings-grid">
+        <NotificationToggle label="Desktop notifications" description="Show system notices when the Jacker tab is in the background." checked={notificationPreferences.desktop} onChange={onToggleDesktopNotifications} disabled={!hasDesktopNotificationSupport} />
+        <NotificationToggle label="Sound for app notices" description="Play a quiet ping for ordinary success or error messages." checked={notificationPreferences.sound} onChange={(checked) => onPreferenceChange({ sound: checked })} />
+        <NotificationToggle label="Deadline reminders" description="Remind you about unfinished tasks as their due dates approach." checked={notificationPreferences.deadlineAlerts} onChange={(checked) => onPreferenceChange({ deadlineAlerts: checked })} />
+        <NotificationToggle label="Deadline sound" description="Play a gentle two-tone ping with deadline reminders." checked={notificationPreferences.deadlineSound} onChange={(checked) => onPreferenceChange({ deadlineSound: checked })} disabled={!notificationPreferences.deadlineAlerts} />
+      </div>
+      <div className="deadline-preference-row"><div><strong>Deadline heads-up</strong><small>Each matching task is reminded at most once per day while Jacker is open.</small></div><select aria-label="Deadline heads-up time" value={notificationPreferences.deadlineLeadDays} disabled={!notificationPreferences.deadlineAlerts} onChange={(event) => onPreferenceChange({ deadlineLeadDays: Number(event.target.value) })}><option value={0}>On its due date</option><option value={1}>1 day before</option><option value={3}>3 days before</option></select><button className="button button-outline button-small" type="button" onClick={onTestSound}><Volume2 size={15} /> Test ping</button></div>
+      <p className="notification-permission-note">{!hasDesktopNotificationSupport ? 'This browser does not support desktop notifications.' : desktopPermission === 'denied' ? 'Desktop notices are blocked. Allow them for Jacker in your browser’s site settings.' : desktopPermission === 'granted' ? 'Browser permission is granted; notices appear when the tab is in the background.' : 'Your browser will ask for permission when you turn on desktop notifications.'}</p>
+      <p className="notification-limit-note">Deadline checks run locally while you are signed in and Jacker is open. Alerts cannot run after the tab/browser is closed; that would require background push notifications.</p>
+    </section>
   </>;
+}
+
+function NotificationToggle({ label, description, checked, onChange, disabled = false }) {
+  return <div className="notification-setting-row"><div className="notification-setting-copy"><strong>{label}</strong><small>{description}</small></div><button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} className={`notification-switch ${checked ? 'notification-switch-on' : ''}`} onClick={() => onChange(!checked)}><span /></button></div>;
 }
 
 function Modal({ title, subtitle, onClose, children }) {
