@@ -43,6 +43,11 @@ export default (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      isPublic: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       courseId: {
         type: DataTypes.INTEGER,
         allowNull: false,

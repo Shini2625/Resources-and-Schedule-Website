@@ -12,9 +12,11 @@ import {
   FileText,
   FolderOpen,
   GraduationCap,
+  Globe,
   LayoutDashboard,
   Link2,
   LoaderCircle,
+  Lock,
   LogOut,
   Menu,
   Plus,
@@ -32,6 +34,7 @@ import { apiRequest } from './lib/api';
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
   { id: 'courses', label: 'My courses', icon: BookOpen },
+  { id: 'shared', label: 'Shared library', icon: Globe },
   { id: 'schedule', label: 'Schedule', icon: CalendarDays },
   { id: 'tasks', label: 'Tasks & deadlines', icon: CheckCircle2 },
   { id: 'motivation', label: 'Motivation', icon: Quote },
@@ -202,6 +205,7 @@ function App() {
             />
           )}
           {page === 'courses' && <CoursesPage courses={courses} token={token} onTokenChange={changeToken} onReload={reload} notify={notify} storageConfigured={storageConfigured} storageChecked={storageChecked} />}
+          {page === 'shared' && <SharedLibraryPage token={token} onTokenChange={changeToken} />}
           {page === 'schedule' && <SchedulePage schedule={schedule} courses={courses} token={token} onTokenChange={changeToken} onReload={reload} notify={notify} />}
           {page === 'tasks' && <TasksPage todos={todos} courses={courses} token={token} onTokenChange={changeToken} onReload={reload} onToggle={toggleTodo} notify={notify} />}
           {page === 'motivation' && <MotivationPage motivations={motivations} token={token} onTokenChange={changeToken} onReload={reload} notify={notify} />}
@@ -237,7 +241,7 @@ function AuthScreen({ onSubmit }) {
     <div className="auth-page">
       <div className="auth-decoration auth-decoration-one" /><div className="auth-decoration auth-decoration-two" />
       <section className="auth-card">
-        <div className="auth-brand"><div className="brand-mark"><GraduationCap size={26} /></div><span>FIELDNOTES <i>STUDY STUDIO</i></span></div>
+        <div className="auth-brand"><div className="brand-mark"><GraduationCap size={26} /></div><span>JACKER <i>STUDY SPACE</i></span></div>
         <div className="auth-copy"><span className="eyebrow">A quieter way to get it done</span><h1>{mode === 'login' ? 'Welcome back.' : 'Make room to grow.'}</h1><p>Keep your classes, resources and small wins in one thoughtful place.</p></div>
         <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); }}>Sign in</button><button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setError(''); }}>Create account</button></div>
         <form className="auth-form" onSubmit={submit}>
@@ -258,7 +262,7 @@ function AuthScreen({ onSubmit }) {
 function Sidebar({ page, onNavigate, user, onLogout, mobileOpen }) {
   return (
     <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
-      <button className="sidebar-brand" onClick={() => onNavigate('dashboard')} aria-label="Go to overview"><span className="brand-mark"><GraduationCap size={22} /></span><span className="brand-word">fieldnotes<small>STUDY STUDIO</small></span></button>
+      <button className="sidebar-brand" onClick={() => onNavigate('dashboard')} aria-label="Jacker overview"><span className="brand-mark"><GraduationCap size={22} /></span><span className="brand-word">Jacker<small>STUDY SPACE</small></span></button>
       <div className="workspace-label">YOUR WORKSPACE</div>
       <nav className="side-nav" aria-label="Main navigation">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${page === id ? 'nav-active' : ''}`} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'tasks' && <span className="nav-count">›</span>}</button>)}
@@ -317,6 +321,7 @@ function DashboardPage({ user, courses, schedule, todos, activeMotivation, onNav
   return (
     <>
       <PageHeading eyebrow={prettyDate()} title={`Good to see you, ${user.fullName?.split(' ')[0] || 'there'}.`} subtitle="A little focus today can make tomorrow feel lighter." action={<button className="button button-primary" onClick={() => onNavigate('tasks')}><Plus size={17} /> Add a task</button>} />
+      <section className="panel note-panel dashboard-note"><div className="dashboard-note-head"><span className="note-icon"><Quote size={18} /></span><span><span className="eyebrow">A NOTE TO SELF</span><span className="note-caption">A MOMENT FOR YOU</span></span></div><blockquote>{activeMotivation?.quote || '“Success is the sum of small efforts, repeated day in and day out.”'}</blockquote><button className="text-link" onClick={() => onNavigate('motivation')}>Your motivation space <ArrowRight size={14} /></button></section>
       <section className="welcome-banner">
         <div className="welcome-copy"><span className="banner-kicker"><Sparkles size={14} /> YOUR DAILY REMINDER</span><h2>{activeMotivation?.quote || 'Keep showing up for the work that matters.'}</h2><p>Your pace is allowed to be your own. Start where you are.</p><button className="banner-link" onClick={() => onNavigate('motivation')}>Visit your motivation space <ArrowRight size={15} /></button></div>
         <div className="banner-art" aria-hidden="true"><div className="sun-disc" /><div className="art-leaf leaf-one" /><div className="art-leaf leaf-two" /><div className="art-leaf leaf-three" /><div className="art-line art-line-one" /><div className="art-line art-line-two" /><span className="art-orbit" /></div>
@@ -341,7 +346,6 @@ function DashboardPage({ user, courses, schedule, todos, activeMotivation, onNav
           <div className="panel-heading"><div><span className="eyebrow">YOUR LEARNING</span><h2>Current courses</h2></div><button className="text-link" onClick={() => onNavigate('courses')}>See courses <ArrowRight size={14} /></button></div>
           {currentCourses.length ? <div className="course-mini-grid">{currentCourses.map((course, index) => <button className={`course-mini course-tone-${index % 4}`} key={course.id} onClick={() => onNavigate('courses')}><span className="course-mini-icon"><BookOpen size={17} /></span><span><strong>{course.title}</strong><small>{course.code} · Year {course.year}</small></span><ChevronRight size={16} /></button>)}</div> : <EmptyState icon={BookOpen} title="Start your course library" body="Create a course, then keep all its resources together." action={<button className="button button-outline button-small" onClick={() => onNavigate('courses')}><Plus size={15} /> Add a course</button>} />}
         </div>
-        <div className="panel note-panel"><span className="note-icon"><Quote size={18} /></span><span className="eyebrow">A MOMENT FOR YOU</span><blockquote>{activeMotivation?.quote || '“Success is the sum of small efforts, repeated day in and day out.”'}</blockquote><button className="text-link" onClick={() => onNavigate('motivation')}>Your motivation space <ArrowRight size={14} /></button></div>
       </section>
     </>
   );
@@ -398,7 +402,7 @@ function CoursesPage({ courses, token, onTokenChange, onReload, notify, storageC
     event.preventDefault(); setResourceSaving(true);
     const form = new FormData(event.currentTarget);
     const title = form.get('title'); const type = form.get('type'); const file = form.get('file');
-    const body = { title, category: form.get('category'), type, description: form.get('description') || undefined };
+    const body = { title, category: form.get('category'), type, description: form.get('description') || undefined, isPublic: form.get('isPublic') === 'true' };
     try {
       if (type === 'link') body.externalLink = form.get('externalLink');
       if (type === 'file') {
@@ -421,6 +425,15 @@ function CoursesPage({ courses, token, onTokenChange, onReload, notify, storageC
     try { await apiRequest(`/resources/${resource.id}`, { method: 'DELETE', token, onTokenChange }); setResources((previous) => previous.filter((item) => item.id !== resource.id)); await onReload(); notify('Resource removed.'); }
     catch (error) { notify(error.message || 'Could not remove resource.', 'error'); }
   };
+  const updateResourceVisibility = async (resource) => {
+    const isPublic = !resource.isPublic;
+    try {
+      await apiRequest(`/resources/${resource.id}`, { method: 'PATCH', body: { isPublic }, token, onTokenChange });
+      setResources((previous) => previous.map((item) => item.id === resource.id ? { ...item, isPublic } : item));
+      await onReload();
+      notify(isPublic ? 'Shared with all signed-in Jacker users.' : 'This resource is private again.');
+    } catch (error) { notify(error.message || 'Could not change resource visibility.', 'error'); }
+  };
 
   return (
     <>
@@ -437,15 +450,41 @@ function CoursesPage({ courses, token, onTokenChange, onReload, notify, storageC
             {selected ? <><div className="resource-panel-head"><div><span className="eyebrow">COURSE RESOURCES</span><h2>{selected.title}</h2><p>{selected.code} · Year {selected.year} · {selected.semester}</p></div><button className="icon-button close-detail" onClick={() => setSelectedId(null)} aria-label="Close course details"><X size={17} /></button></div>
               {selected.description && <p className="course-description">{selected.description}</p>}
               <div className="resource-heading"><h3>Saved for this class</h3><button className="button button-outline button-small" onClick={() => { setResourceType('link'); setResourceFormOpen(true); }}><Plus size={15} /> Add resource</button></div>
-              {resourceLoading ? <div className="panel-loading"><LoaderCircle className="spin" size={18} /> Loading resources…</div> : resources.length ? <div className="resource-list">{resources.map((resource) => <div className="resource-row" key={resource.id}><span className="resource-type-icon">{resource.type === 'link' ? <Link2 size={16} /> : <FileText size={16} />}</span><span className="resource-row-copy"><strong>{resource.title}</strong><small>{resource.category}{resource.description ? ` · ${resource.description}` : ''}</small></span>{(resource.fileUrl || resource.externalLink) && <a href={resource.externalLink || resource.fileUrl} target="_blank" rel="noreferrer" className="icon-button" aria-label={`Open ${resource.title}`}><ArrowUpRight size={16} /></a>}<button className="icon-button danger-hover" aria-label={`Delete ${resource.title}`} onClick={() => deleteResource(resource)}><Trash2 size={15} /></button></div>)}</div> : <EmptyState icon={FileText} title="No resources yet" body="Add notes, a useful link or an uploaded class file." action={<button className="button button-outline button-small" onClick={() => setResourceFormOpen(true)}><Plus size={15} /> Add resource</button>} />}
+              {resourceLoading ? <div className="panel-loading"><LoaderCircle className="spin" size={18} /> Loading resources…</div> : resources.length ? <div className="resource-list">{resources.map((resource) => <div className="resource-row" key={resource.id}><span className="resource-type-icon">{resource.type === 'link' ? <Link2 size={16} /> : <FileText size={16} />}</span><span className="resource-row-copy"><strong>{resource.title}</strong><small>{resource.category}{resource.description ? ` · ${resource.description}` : ''}</small></span><span className={`visibility-pill ${resource.isPublic ? 'visibility-public' : 'visibility-private'}`}>{resource.isPublic ? <Globe size={12} /> : <Lock size={12} />}{resource.isPublic ? 'Shared' : 'Private'}</span>{(resource.fileUrl || resource.externalLink) && <a href={resource.externalLink || resource.fileUrl} target="_blank" rel="noreferrer" className="icon-button" aria-label={`Open ${resource.title}`}><ArrowUpRight size={16} /></a>}<button className="icon-button visibility-toggle" aria-label={resource.isPublic ? `Make ${resource.title} private` : `Share ${resource.title} with Jacker users`} title={resource.isPublic ? 'Make private' : 'Share with Jacker users'} onClick={() => updateResourceVisibility(resource)}>{resource.isPublic ? <Lock size={15} /> : <Globe size={15} />}</button><button className="icon-button danger-hover" aria-label={`Delete ${resource.title}`} onClick={() => deleteResource(resource)}><Trash2 size={15} /></button></div>)}</div> : <EmptyState icon={FileText} title="No resources yet" body="Add notes, a useful link or an uploaded class file." action={<button className="button button-outline button-small" onClick={() => setResourceFormOpen(true)}><Plus size={15} /> Add resource</button>} />}
             </> : <div className="resource-placeholder"><span className="empty-icon"><FolderOpen size={20} /></span><strong>Choose a course</strong><p>Select a course card to browse its notes, links and files.</p></div>}
           </aside>
         </div>
       )}
       {formOpen && <Modal title={editing ? 'Edit course' : 'Add a course'} subtitle="A little context helps keep your study space organized." onClose={() => setFormOpen(false)}><form className="form-stack" onSubmit={submitCourse}><div className="form-grid"><label>Course name<input name="title" defaultValue={editing?.title || ''} placeholder="Introduction to Biology" required /></label><label>Course code<input name="code" defaultValue={editing?.code || ''} placeholder="BIO 101" required /></label><label>Year<input name="year" type="number" min="1" max="10" defaultValue={editing?.year || 1} required /></label><label>Semester<input name="semester" defaultValue={editing?.semester || 'Semester 1'} required /></label><label>Status<select name="status" defaultValue={editing?.status || 'active'}><option value="active">Active</option><option value="completed">Completed</option></select></label></div><label>Description <span className="field-hint">optional</span><textarea name="description" defaultValue={editing?.description || ''} rows="3" placeholder="What are you working toward in this course?" /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setFormOpen(false)}>Cancel</button><button className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Add course'}</button></div></form></Modal>}
-      {resourceFormOpen && selected && <Modal title="Add a resource" subtitle={`Save something useful for ${selected.code}.`} onClose={() => setResourceFormOpen(false)}><form className="form-stack" onSubmit={submitResource}><div className="form-grid"><label>Title<input name="title" required placeholder="Lecture notes — Week 4" /></label><label>Category<select name="category" defaultValue="notes">{CATEGORIES.map((item) => <option key={item} value={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</option>)}</select></label><label>Resource type<select name="type" value={resourceType} onChange={(event) => setResourceType(event.target.value)}><option value="link">Web link</option><option value="text">Text note</option><option value="file">File upload (R2)</option></select></label>{resourceType === 'link' && <label>Link URL<input name="externalLink" type="url" placeholder="https://…" required /></label>}{resourceType === 'file' && <label>Choose file<input name="file" type="file" required /></label>}</div><label>Description / note<textarea name="description" rows="3" placeholder="A quick reminder about what this is for…" /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setResourceFormOpen(false)}>Cancel</button><button className="button button-primary" disabled={resourceSaving}>{resourceSaving ? <><LoaderCircle className="spin" size={16} /> Saving…</> : 'Save resource'}</button></div></form></Modal>}
+      {resourceFormOpen && selected && <Modal title="Add a resource" subtitle={`Save something useful for ${selected.code}.`} onClose={() => setResourceFormOpen(false)}><form className="form-stack" onSubmit={submitResource}><div className="form-grid"><label>Title<input name="title" required placeholder="Lecture notes — Week 4" /></label><label>Category<select name="category" defaultValue="notes">{CATEGORIES.map((item) => <option key={item} value={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</option>)}</select></label><label>Resource type<select name="type" value={resourceType} onChange={(event) => setResourceType(event.target.value)}><option value="link">Web link</option><option value="text">Text note</option><option value="file">File upload (R2)</option></select></label>{resourceType === 'link' && <label>Link URL<input name="externalLink" type="url" placeholder="https://…" required /></label>}{resourceType === 'file' && <label>Choose file<input name="file" type="file" required /></label>}<label className="visibility-choice">Visibility<select name="isPublic" defaultValue="false"><option value="false">Private — only you</option><option value="true">Public — all signed-in Jacker users</option></select><span className="field-hint">Public resources appear in the Shared Library. Private resources stay in your account.</span></label></div><label>Description / note<textarea name="description" rows="3" placeholder="A quick reminder about what this is for…" /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={() => setResourceFormOpen(false)}>Cancel</button><button className="button button-primary" disabled={resourceSaving}>{resourceSaving ? <><LoaderCircle className="spin" size={16} /> Saving…</> : 'Save resource'}</button></div></form></Modal>}
     </>
   );
+}
+
+function SharedLibraryPage({ token, onTokenChange }) {
+  const [resources, setResources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  useEffect(() => {
+    let active = true;
+    apiRequest('/resources/public', { token, onTokenChange })
+      .then((data) => { if (active) setResources(asArray(data)); })
+      .catch((reason) => { if (active) setError(reason.message || 'Could not load shared resources.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [token, onTokenChange]);
+  const filtered = useMemo(() => resources.filter((item) => `${item.title} ${item.category} ${item.course?.title || ''} ${item.course?.code || ''}`.toLowerCase().includes(search.toLowerCase())), [resources, search]);
+  return <>
+    <PageHeading eyebrow="SHARED WITH JACKER" title="Shared library" subtitle="Browse resources that Jacker users have chosen to share." />
+    <div className="shared-library-note"><Globe size={17} /><span>Only public resources appear here. Private resources remain visible only to their owners.</span></div>
+    <div className="courses-toolbar"><label className="search-box course-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search shared resources" /></label><span className="result-count">{filtered.length} {filtered.length === 1 ? 'resource' : 'resources'}</span></div>
+    {error ? <div className="inline-alert alert-error" role="alert">{error}</div> : loading ? <div className="panel-loading"><LoaderCircle className="spin" size={18} /> Loading shared resources…</div> : filtered.length ? <div className="public-resource-grid">{filtered.map((resource) => {
+      const target = resource.externalLink || resource.fileUrl;
+      const safeTarget = target && /^https?:\/\//i.test(target) ? target : null;
+      return <article className="panel public-resource-card" key={resource.id}><div className="public-resource-top"><span className="resource-type-icon">{resource.type === 'link' ? <Link2 size={16} /> : <FileText size={16} />}</span><span className="visibility-pill visibility-public"><Globe size={12} /> Public</span></div><span className="eyebrow">{resource.category}</span><h2>{resource.title}</h2><p className="public-resource-course">{resource.course?.code ? `${resource.course.code} · ` : ''}{resource.course?.title || 'Shared resource'}</p>{resource.description && <p className="public-resource-description">{resource.description}</p>}{safeTarget ? <a href={safeTarget} target="_blank" rel="noreferrer" className="button button-outline button-small">Open resource <ArrowUpRight size={14} /></a> : <span className="public-resource-note">Shared with Jacker users</span>}</article>;
+    })}</div> : <div className="panel page-empty-panel"><EmptyState icon={Globe} title="Nothing shared yet" body="When Jacker users choose to share a resource, it will appear here." /></div>}
+  </>;
 }
 
 function SchedulePage({ schedule, courses, token, onTokenChange, onReload, notify }) {
@@ -486,7 +525,7 @@ function TasksPage({ todos, courses, token, onTokenChange, onReload, onToggle, n
 
 function TaskRow({ item, onToggle, compact = false }) {
   const priority = (item.priority || 'medium').toLowerCase();
-  return <div className={`task-row ${item.completed ? 'task-done' : ''} ${compact ? 'task-compact' : ''}`}><button className={`task-check ${item.completed ? 'checked' : ''}`} aria-label={item.completed ? `Mark ${item.title} incomplete` : `Complete ${item.title}`} onClick={() => onToggle(item)}>{item.completed && <Check size={13} />}</button><span className="task-row-copy"><strong>{item.title}</strong>{!compact && item.description && <small>{item.description}</small>}<span className="task-meta"><i className={`priority-dot priority-${priority}`} />{priority}<i className="meta-separator" />{item.course?.code || item.category || 'Personal'}{!compact && item.dueDate && <><i className="meta-separator" /><Clock3 size={12} />{shortDate(item.dueDate)}</>}</span></span>{compact && <span className="task-due">{shortDate(item.dueDate)}</span>}</div>;
+  return <div className={`task-row priority-row-${priority} ${item.completed ? 'task-done' : ''} ${compact ? 'task-compact' : ''}`}><button className={`task-check ${item.completed ? 'checked' : ''}`} aria-label={item.completed ? `Mark ${item.title} incomplete` : `Complete ${item.title}`} onClick={() => onToggle(item)}>{item.completed && <Check size={13} />}</button><span className="task-row-copy"><strong>{item.title}</strong>{!compact && item.description && <small>{item.description}</small>}<span className="task-meta"><span className={`priority-badge priority-${priority}`}><i className="priority-dot" />{priority}</span><i className="meta-separator" />{item.course?.code || item.category || 'Personal'}{!compact && item.dueDate && <><i className="meta-separator" /><Clock3 size={12} />{shortDate(item.dueDate)}</>}</span></span>{compact && <span className="task-due">{shortDate(item.dueDate)}</span>}</div>;
 }
 
 function MotivationPage({ motivations, token, onTokenChange, onReload, notify }) {
