@@ -15,6 +15,11 @@ export default {
         type: Sequelize.STRING,
         allowNull: true,
       },
+      isPinned: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       userId: {
         type: Sequelize.INTEGER,
         allowNull: false,

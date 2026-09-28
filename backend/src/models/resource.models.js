@@ -21,7 +21,8 @@ export default (sequelize) => {
           'solutions',
           'pyqs',
           'grading',
-          'custom'
+          'custom',
+          'slides'
         ),
         allowNull: false,
       },

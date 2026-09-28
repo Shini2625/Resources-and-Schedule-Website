@@ -38,6 +38,16 @@ export default {
         allowNull: false,
         defaultValue: false,
       },
+      courseId: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'courses',
+          key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      },
       userId: {
         type: Sequelize.INTEGER,
         allowNull: false,

@@ -41,6 +41,14 @@ export default (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      courseId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'courses',
+          key: 'id',
+        },
+      },
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,

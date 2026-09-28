@@ -2,6 +2,19 @@ import { Course, Resource } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 
+const VALID_CATEGORIES = [
+  'notes',
+  'references',
+  'tutorials',
+  'solutions',
+  'pyqs',
+  'grading',
+  'custom',
+  'slides',
+];
+
+const VALID_TYPES = ['file', 'link', 'text'];
+
 export const getCourseResources = async (req, res, next) => {
   try {
     const course = await Course.findOne({
@@ -12,8 +25,17 @@ export const getCourseResources = async (req, res, next) => {
       throw new ApiError(404, 'Course not found.');
     }
 
+    const where = { courseId: course.id };
+
+    if (req.query.category) {
+      where.category = req.query.category;
+    }
+    if (req.query.type) {
+      where.type = req.query.type;
+    }
+
     const resources = await Resource.findAll({
-      where: { courseId: course.id },
+      where,
       order: [['createdAt', 'DESC']],
     });
 
@@ -25,10 +47,21 @@ export const getCourseResources = async (req, res, next) => {
 
 export const createResource = async (req, res, next) => {
   try {
-    const { title, category, type, description, fileUrl, externalLink } = req.body;
+    const { title, category, type = 'file', description, fileUrl, externalLink } = req.body;
 
     if (!title || !category) {
       throw new ApiError(400, 'Resource title and category are required.');
+    }
+
+    if (!VALID_CATEGORIES.includes(category)) {
+      throw new ApiError(
+        400,
+        `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}.`
+      );
+    }
+
+    if (!VALID_TYPES.includes(type)) {
+      throw new ApiError(400, `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}.`);
     }
 
     const course = await Course.findOne({
@@ -40,7 +73,7 @@ export const createResource = async (req, res, next) => {
     }
 
     const resource = await Resource.create({
-      title,
+      title: title.trim(),
       category,
       type,
       description,
@@ -91,9 +124,29 @@ export const updateResource = async (req, res, next) => {
       throw new ApiError(403, 'You are not allowed to update this resource.');
     }
 
-    const updatedResource = await resource.update(req.body);
+    const { title, category, type, description, fileUrl, externalLink } = req.body;
 
-    return ApiResponse.success(res, 200, updatedResource, 'Resource updated successfully.');
+    if (category && !VALID_CATEGORIES.includes(category)) {
+      throw new ApiError(
+        400,
+        `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}.`
+      );
+    }
+
+    if (type && !VALID_TYPES.includes(type)) {
+      throw new ApiError(400, `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}.`);
+    }
+
+    if (title !== undefined) resource.title = title.trim();
+    if (category !== undefined) resource.category = category;
+    if (type !== undefined) resource.type = type;
+    if (description !== undefined) resource.description = description;
+    if (fileUrl !== undefined) resource.fileUrl = fileUrl;
+    if (externalLink !== undefined) resource.externalLink = externalLink;
+
+    await resource.save();
+
+    return ApiResponse.success(res, 200, resource, 'Resource updated successfully.');
   } catch (error) {
     return next(error);
   }
@@ -116,7 +169,12 @@ export const deleteResource = async (req, res, next) => {
 
     await resource.destroy();
 
-    return ApiResponse.success(res, 200, { id: Number(req.params.id) }, 'Resource deleted successfully.');
+    return ApiResponse.success(
+      res,
+      200,
+      { id: Number(req.params.id) },
+      'Resource deleted successfully.'
+    );
   } catch (error) {
     return next(error);
   }

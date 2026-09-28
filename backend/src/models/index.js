@@ -14,6 +14,7 @@ const TimetableEntry = TimetableModel(sequelize);
 const TodoItem = TodoModel(sequelize);
 const Motivation = MotivationModel(sequelize);
 
+// User <-> Course
 User.hasMany(Course, {
   foreignKey: 'userId',
   as: 'courses',
@@ -25,6 +26,7 @@ Course.belongsTo(User, {
   as: 'owner',
 });
 
+// Course <-> Resource
 Course.hasMany(Resource, {
   foreignKey: 'courseId',
   as: 'resources',
@@ -36,6 +38,7 @@ Resource.belongsTo(Course, {
   as: 'course',
 });
 
+// User <-> TimetableEntry
 User.hasMany(TimetableEntry, {
   foreignKey: 'userId',
   as: 'timetableEntries',
@@ -47,6 +50,19 @@ TimetableEntry.belongsTo(User, {
   as: 'user',
 });
 
+// Course <-> TimetableEntry
+Course.hasMany(TimetableEntry, {
+  foreignKey: 'courseId',
+  as: 'timetableEntries',
+  onDelete: 'SET NULL',
+});
+
+TimetableEntry.belongsTo(Course, {
+  foreignKey: 'courseId',
+  as: 'course',
+});
+
+// User <-> TodoItem
 User.hasMany(TodoItem, {
   foreignKey: 'userId',
   as: 'todoItems',
@@ -58,6 +74,19 @@ TodoItem.belongsTo(User, {
   as: 'user',
 });
 
+// Course <-> TodoItem
+Course.hasMany(TodoItem, {
+  foreignKey: 'courseId',
+  as: 'todoItems',
+  onDelete: 'SET NULL',
+});
+
+TodoItem.belongsTo(Course, {
+  foreignKey: 'courseId',
+  as: 'course',
+});
+
+// User <-> Motivation
 User.hasMany(Motivation, {
   foreignKey: 'userId',
   as: 'motivations',

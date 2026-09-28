@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
@@ -11,14 +13,20 @@ import resourceRoutes from './routes/resource.routes.js';
 import timetableRoutes from './routes/timetable.routes.js';
 import todoRoutes from './routes/todo.routes.js';
 import motivationRoutes from './routes/motivation.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 
 const app = express();
 
+const corsOrigin = process.env.CLIENT_URL || true;
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigin,
     credentials: true,
   })
 );
@@ -42,7 +50,17 @@ app.use('/api/v1/resources', resourceRoutes);
 app.use('/api/v1/timetable', timetableRoutes);
 app.use('/api/v1/todos', todoRoutes);
 app.use('/api/v1/motivation', motivationRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 
+// Catch-all 404 handler
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// Centralized error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled application error:', err);
 

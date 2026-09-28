@@ -6,7 +6,10 @@ export const getMotivations = async (req, res, next) => {
   try {
     const items = await Motivation.findAll({
       where: { userId: req.user.id },
-      order: [['createdAt', 'DESC']],
+      order: [
+        ['isPinned', 'DESC'],
+        ['createdAt', 'DESC'],
+      ],
     });
 
     return ApiResponse.success(res, 200, items, 'Motivation entries fetched successfully.');
@@ -15,17 +18,58 @@ export const getMotivations = async (req, res, next) => {
   }
 };
 
+export const getActiveMotivation = async (req, res, next) => {
+  try {
+    let item = await Motivation.findOne({
+      where: { userId: req.user.id, isPinned: true },
+    });
+
+    if (!item) {
+      item = await Motivation.findOne({
+        where: { userId: req.user.id },
+        order: [['createdAt', 'DESC']],
+      });
+    }
+
+    if (!item) {
+      return ApiResponse.success(
+        res,
+        200,
+        {
+          quote: 'Success is the sum of small efforts, repeated day in and day out.',
+          imageUrl: null,
+          isPinned: false,
+          isDefault: true,
+        },
+        'Default motivation returned.'
+      );
+    }
+
+    return ApiResponse.success(res, 200, item, 'Active motivation fetched successfully.');
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const createMotivation = async (req, res, next) => {
   try {
-    const { quote, imageUrl } = req.body;
+    const { quote, imageUrl, isPinned = false } = req.body;
 
     if (!quote) {
       throw new ApiError(400, 'A motivation quote is required.');
     }
 
+    if (isPinned) {
+      await Motivation.update(
+        { isPinned: false },
+        { where: { userId: req.user.id } }
+      );
+    }
+
     const item = await Motivation.create({
-      quote,
-      imageUrl,
+      quote: quote.trim(),
+      imageUrl: imageUrl || null,
+      isPinned: Boolean(isPinned),
       userId: req.user.id,
     });
 
@@ -61,9 +105,57 @@ export const updateMotivation = async (req, res, next) => {
       throw new ApiError(404, 'Motivation entry not found.');
     }
 
-    const updatedItem = await item.update(req.body);
+    const { quote, imageUrl, isPinned } = req.body;
 
-    return ApiResponse.success(res, 200, updatedItem, 'Motivation entry updated successfully.');
+    if (isPinned === true) {
+      await Motivation.update(
+        { isPinned: false },
+        { where: { userId: req.user.id } }
+      );
+      item.isPinned = true;
+    } else if (isPinned === false) {
+      item.isPinned = false;
+    }
+
+    if (quote !== undefined) item.quote = quote.trim();
+    if (imageUrl !== undefined) item.imageUrl = imageUrl;
+
+    await item.save();
+
+    return ApiResponse.success(res, 200, item, 'Motivation entry updated successfully.');
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const togglePinMotivation = async (req, res, next) => {
+  try {
+    const item = await Motivation.findOne({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+
+    if (!item) {
+      throw new ApiError(404, 'Motivation entry not found.');
+    }
+
+    const willBePinned = !item.isPinned;
+
+    if (willBePinned) {
+      await Motivation.update(
+        { isPinned: false },
+        { where: { userId: req.user.id } }
+      );
+    }
+
+    item.isPinned = willBePinned;
+    await item.save();
+
+    return ApiResponse.success(
+      res,
+      200,
+      item,
+      willBePinned ? 'Motivation pinned successfully.' : 'Motivation unpinned.'
+    );
   } catch (error) {
     return next(error);
   }
@@ -81,7 +173,12 @@ export const deleteMotivation = async (req, res, next) => {
 
     await item.destroy();
 
-    return ApiResponse.success(res, 200, { id: Number(req.params.id) }, 'Motivation entry deleted successfully.');
+    return ApiResponse.success(
+      res,
+      200,
+      { id: Number(req.params.id) },
+      'Motivation entry deleted successfully.'
+    );
   } catch (error) {
     return next(error);
   }

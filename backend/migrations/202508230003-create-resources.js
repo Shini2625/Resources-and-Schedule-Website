@@ -19,7 +19,8 @@ export default {
           'solutions',
           'pyqs',
           'grading',
-          'custom'
+          'custom',
+          'slides'
         ),
         allowNull: false,
       },

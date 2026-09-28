@@ -14,7 +14,6 @@ export default {
       code: {
         type: Sequelize.STRING,
         allowNull: false,
-        unique: true,
       },
       year: {
         type: Sequelize.INTEGER,
@@ -39,6 +38,22 @@ export default {
         type: Sequelize.INTEGER,
         allowNull: true,
       },
+      gradingPolicy: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      professorName: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      professorReview: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      customNotes: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
       userId: {
         type: Sequelize.INTEGER,
         allowNull: false,
@@ -59,6 +74,11 @@ export default {
         allowNull: false,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
+    });
+
+    await queryInterface.addIndex('courses', ['userId', 'code'], {
+      unique: true,
+      name: 'unique_user_course_code',
     });
   },
 

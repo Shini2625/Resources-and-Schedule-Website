@@ -16,7 +16,6 @@ export default (sequelize) => {
       code: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
       },
       year: {
         type: DataTypes.INTEGER,
@@ -41,6 +40,22 @@ export default (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      gradingPolicy: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      professorName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      professorReview: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      customNotes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -53,6 +68,13 @@ export default (sequelize) => {
     {
       tableName: 'courses',
       timestamps: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ['userId', 'code'],
+          name: 'unique_user_course_code',
+        },
+      ],
     }
   );
 

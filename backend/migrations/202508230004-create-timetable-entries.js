@@ -39,6 +39,16 @@ export default {
         type: Sequelize.TEXT,
         allowNull: true,
       },
+      courseId: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'courses',
+          key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      },
       userId: {
         type: Sequelize.INTEGER,
         allowNull: false,

@@ -7,7 +7,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    let token = null;
+
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
 
     if (!token) {
       return res.status(401).json({
@@ -30,6 +38,7 @@ export const verifyToken = async (req, res, next) => {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      username: user.username,
       role: user.role,
     };
 
