@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import { DataTypes, Sequelize } from 'sequelize';
 import resourceVisibilityMigration from '../../migrations/202609280001-add-resource-visibility.js';
+import passwordResetMigration from '../../migrations/202609290001-add-password-reset-fields.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -164,6 +165,7 @@ export const connectDB = async () => {
     // This additive, idempotent migration keeps existing resources private and
     // makes the visibility column ready before production API requests arrive.
     await resourceVisibilityMigration.up(sequelize.getQueryInterface(), DataTypes);
+    await passwordResetMigration.up(sequelize.getQueryInterface(), DataTypes);
 
     return sequelize;
   } catch (error) {

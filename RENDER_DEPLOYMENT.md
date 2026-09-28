@@ -11,7 +11,7 @@ The existing Aiven database remains a separate service; it does not need to be r
 
 ## 1. Redeploy the backend API
 
-The backend code now includes the signed-in shared-resource API and runs a narrow, idempotent database migration during startup. The migration adds `resources.isPublic` with a default of `false`, so existing resources remain private.
+The backend includes the signed-in shared-resource API and the forgot-password API. On startup it applies idempotent migrations that keep existing resources private and add the password-reset/session fields to `users`.
 
 Use the existing backend Render service if it is already configured:
 
@@ -41,7 +41,23 @@ Use only the backend origin for `VITE_API_URL`; do **not** add `/api/v1`. The fr
 
 If you add a custom domain or change the Render Static Site URL later, update the backend's `CLIENT_URL` to the new exact origin and redeploy the backend.
 
-## 3. SPA routing and R2 uploads
+## 3. Configure forgot-password email
+
+Password reset links are delivered through an SMTP email provider. In the **backend Web Service** environment settings, add:
+
+- `SMTP_HOST` = your provider's SMTP host
+- `SMTP_PORT` = `587` for STARTTLS, or `465` for implicit TLS
+- `SMTP_USER` = your SMTP username
+- `SMTP_PASS` = your SMTP password or provider-issued SMTP key
+- `EMAIL_FROM` = a sender address verified with your email provider
+- `FRONTEND_URL` = the exact frontend origin, such as `https://jacker.onrender.com`
+- `SMTP_SECURE` = optional; use `true` for port `465` (the backend also enables secure mode automatically on `465`)
+
+Keep SMTP credentials on the backend only. Keep `CLIENT_URL` set to the same frontend origin for CORS. Save the environment changes and redeploy the backend. Without the SMTP settings, the forgot-password page will explain that email reset is not yet configured. A reset link expires in 15 minutes, can be used once, and changing the password revokes existing sessions. Requests are rate-limited and the response does not reveal whether an email is registered.
+
+To verify it, use **Forgot password?** with an account email and open the email link. If it does not arrive, check spam, the provider's verified-sender requirements, and the backend service logs.
+
+## 4. SPA routing and R2 uploads
 
 If Render asks for a rewrite rule, add:
 
@@ -51,7 +67,7 @@ If Render asks for a rewrite rule, add:
 
 R2 readiness was checked against the live API: it reported configured, and the presigned `PUT` URL had a valid HTTPS signature. No object was uploaded during that check. For browser uploads, add the deployed frontend origin to the R2 bucket's CORS allowed origins and allow `PUT` with the `Content-Type` header. The backend environment should retain `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and (if used) `R2_PUBLIC_URL`.
 
-## 4. Verify the deployment
+## 5. Verify the deployment
 
 1. Check the API: `https://jacker-cy30.onrender.com/api/v1/health`.
 2. Open the Render Static Site, create/sign in to an account, and confirm dashboard data loads.

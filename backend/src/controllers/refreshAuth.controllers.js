@@ -21,8 +21,17 @@ export const refreshAccessToken = async (req, res, next) => {
       throw new ApiError(401, 'User no longer exists.');
     }
 
+    if (Number(decoded.tokenVersion ?? 0) !== Number(user.tokenVersion || 0)) {
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+      });
+      throw new ApiError(401, 'Your session is no longer valid. Please sign in again.');
+    }
+
     const newAccessToken = user.generateAccessToken();
-    const newRefreshToken = jwt.sign({ id: user.id }, JWT_SECRET, {
+    const newRefreshToken = jwt.sign({ id: user.id, tokenVersion: Number(user.tokenVersion || 0) }, JWT_SECRET, {
       expiresIn: '7d',
     });
 

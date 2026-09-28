@@ -1,10 +1,16 @@
+import { createHash, randomBytes } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 
 import { User } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { buildPasswordResetUrl, isPasswordResetEmailConfigured, sendPasswordResetEmail } from '../services/email.service.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+const RESET_REQUEST_MESSAGE = 'If an account matches that email address, a password reset link will be sent.';
+const hashResetToken = (token) => createHash('sha256').update(token).digest('hex');
 
 const setRefreshTokenCookie = (res, token) => {
   res.cookie('refreshToken', token, {
@@ -13,6 +19,78 @@ const setRefreshTokenCookie = (res, token) => {
     sameSite: 'strict',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
+};
+
+export const requestPasswordReset = async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ApiError(400, 'Enter a valid email address.');
+    }
+
+    if (!isPasswordResetEmailConfigured()) {
+      throw new ApiError(503, 'Password reset email is not configured yet. Please contact the administrator.');
+    }
+
+    const user = await User.findOne({ where: { email } });
+    if (user) {
+      const token = randomBytes(32).toString('base64url');
+      user.passwordResetTokenHash = hashResetToken(token);
+      user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+      await user.save();
+
+      try {
+        await sendPasswordResetEmail({ to: user.email, resetUrl: buildPasswordResetUrl(token) });
+      } catch (error) {
+        user.passwordResetTokenHash = null;
+        user.passwordResetExpiresAt = null;
+        await user.save();
+        console.error('[auth] Password reset email delivery failed.', error?.code || error?.name || 'Unknown error');
+      }
+    }
+
+    return ApiResponse.success(res, 202, { accepted: true }, RESET_REQUEST_MESSAGE);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (typeof token !== 'string' || !token || typeof newPassword !== 'string') {
+      throw new ApiError(400, 'A reset token and new password are required.');
+    }
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      throw new ApiError(400, 'Password must be between 6 and 72 characters.');
+    }
+
+    const user = await User.findOne({
+      where: {
+        passwordResetTokenHash: hashResetToken(token),
+        passwordResetExpiresAt: { [Op.gt]: new Date() },
+      },
+    });
+    if (!user) {
+      throw new ApiError(400, 'This password reset link is invalid or expired. Request a new one.');
+    }
+
+    user.password = newPassword;
+    user.passwordResetTokenHash = null;
+    user.passwordResetExpiresAt = null;
+    user.tokenVersion = Number(user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    return ApiResponse.success(res, 200, {}, 'Password updated. Sign in with your new password.');
+  } catch (error) {
+    return next(error);
+  }
 };
 
 export const registerUser = async (req, res, next) => {
@@ -46,7 +124,7 @@ export const registerUser = async (req, res, next) => {
     });
 
     const accessToken = user.generateAccessToken();
-    const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, {
+    const refreshToken = jwt.sign({ id: user.id, tokenVersion: Number(user.tokenVersion || 0) }, JWT_SECRET, {
       expiresIn: '7d',
     });
 
@@ -99,7 +177,7 @@ export const loginUser = async (req, res, next) => {
     }
 
     const accessToken = user.generateAccessToken();
-    const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, {
+    const refreshToken = jwt.sign({ id: user.id, tokenVersion: Number(user.tokenVersion || 0) }, JWT_SECRET, {
       expiresIn: '7d',
     });
 

@@ -41,6 +41,19 @@ export default (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      passwordResetTokenHash: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      passwordResetExpiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      tokenVersion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
       role: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -71,6 +84,7 @@ export default (sequelize) => {
         email: this.email,
         fullName: this.fullName,
         role: this.role,
+        tokenVersion: Number(this.tokenVersion || 0),
       },
       process.env.JWT_SECRET || 'change-me-in-production',
       { expiresIn: process.env.JWT_EXPIRY || '7d' }

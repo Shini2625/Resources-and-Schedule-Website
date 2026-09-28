@@ -62,7 +62,14 @@ const prettyTime = (value = '') => {
 const sortByTime = (items) => [...items].sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('accessToken') || '');
+  const initialResetToken = new URLSearchParams(window.location.search).get('resetToken') || '';
+  const [token, setToken] = useState(() => {
+    if (initialResetToken) {
+      localStorage.removeItem('accessToken');
+      return '';
+    }
+    return localStorage.getItem('accessToken') || '';
+  });
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('dashboard');
   const [courses, setCourses] = useState([]);
@@ -72,7 +79,7 @@ function App() {
   const [activeMotivation, setActiveMotivation] = useState(null);
   const [storageConfigured, setStorageConfigured] = useState(false);
   const [storageChecked, setStorageChecked] = useState(false);
-  const [ready, setReady] = useState(() => !localStorage.getItem('accessToken'));
+  const [ready, setReady] = useState(() => !localStorage.getItem('accessToken') || Boolean(initialResetToken));
   const [screenError, setScreenError] = useState('');
   const [toast, setToast] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -187,7 +194,7 @@ function App() {
   };
 
   if (!ready) return <LoadingScreen label="Opening your study space…" />;
-  if (!token) return <AuthScreen onSubmit={handleLogin} />;
+  if (!token) return <AuthScreen onSubmit={handleLogin} initialResetToken={initialResetToken} />;
   if (!user && screenError) return <RetryScreen message={screenError} onRetry={() => window.location.reload()} onLogout={handleLogout} />;
   if (!user) return <LoadingScreen label="Getting your workspace ready…" />;
 
@@ -225,33 +232,97 @@ function RetryScreen({ message, onRetry, onLogout }) {
   return <div className="loading-screen"><div className="retry-card"><div className="brand-mark"><GraduationCap size={25} /></div><h1>We couldn’t reach your workspace</h1><p>{message}</p><div className="button-row centered"><button className="button button-primary" onClick={onRetry}>Try again</button><button className="button button-quiet" onClick={onLogout}>Sign out</button></div></div></div>;
 }
 
-function AuthScreen({ onSubmit }) {
-  const [mode, setMode] = useState('login');
-  const [fields, setFields] = useState({ fullName: '', username: '', identifier: '', password: '' });
+function AuthScreen({ onSubmit, initialResetToken = '' }) {
+  const [mode, setMode] = useState(initialResetToken ? 'reset' : 'login');
+  const [fields, setFields] = useState({ fullName: '', username: '', identifier: '', password: '', confirmPassword: '' });
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState(initialResetToken);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const update = (event) => setFields((previous) => ({ ...previous, [event.target.name]: event.target.value }));
-  const submit = async (event) => {
-    event.preventDefault(); setError(''); setBusy(true);
+  const clearMessages = () => { setError(''); setNotice(''); };
+  const showForgotPassword = () => {
+    setResetEmail(fields.identifier.includes('@') ? fields.identifier.trim() : '');
+    setMode('forgot');
+    clearMessages();
+  };
+  const backToSignIn = () => { setMode('login'); clearMessages(); };
+  const cleanResetUrl = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('resetToken');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+  useEffect(() => {
+    if (!initialResetToken) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('resetToken');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [initialResetToken]);
+  const submitAuth = async (event) => {
+    event.preventDefault(); clearMessages(); setBusy(true);
     try { await onSubmit(fields.identifier.trim(), fields.password, mode, fields.fullName.trim(), fields.username.trim()); }
     catch (reason) { setError(reason.message || 'Please try again.'); }
     finally { setBusy(false); }
   };
+  const submitForgot = async (event) => {
+    event.preventDefault(); clearMessages(); setBusy(true);
+    try {
+      await apiRequest('/auth/forgot-password', { method: 'POST', body: { email: resetEmail.trim() }, auth: false });
+      setNotice('If an account matches that email address, a reset link will be sent. Check your inbox and spam folder.');
+    } catch (reason) { setError(reason.message || 'Could not request a reset link. Please try again.'); }
+    finally { setBusy(false); }
+  };
+  const submitReset = async (event) => {
+    event.preventDefault(); clearMessages();
+    if (fields.password !== fields.confirmPassword) { setError('The passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      await apiRequest('/auth/reset-password', { method: 'POST', body: { token: resetToken, newPassword: fields.password }, auth: false });
+      cleanResetUrl();
+      setResetToken('');
+      setFields({ fullName: '', username: '', identifier: '', password: '', confirmPassword: '' });
+      setMode('login');
+      setNotice('Your password has been updated. Sign in with your new password.');
+    } catch (reason) { setError(reason.message || 'This reset link is invalid or expired. Request a new one.'); }
+    finally { setBusy(false); }
+  };
+  const isAuthMode = mode === 'login' || mode === 'register';
+  const title = mode === 'register' ? 'Make room to grow.' : mode === 'forgot' ? 'Forgot your password?' : mode === 'reset' ? 'Choose a new password.' : 'Welcome back.';
+  const subtitle = mode === 'forgot'
+    ? 'Enter your account email and we’ll send a secure reset link.'
+    : mode === 'reset'
+      ? 'Choose a new password for your Jacker study space.'
+      : 'Keep your classes, resources and small wins in one thoughtful place.';
   return (
     <div className="auth-page">
       <div className="auth-decoration auth-decoration-one" /><div className="auth-decoration auth-decoration-two" />
       <section className="auth-card">
         <div className="auth-brand"><div className="brand-mark"><GraduationCap size={26} /></div><span>JACKER <i>STUDY SPACE</i></span></div>
-        <div className="auth-copy"><span className="eyebrow">A quieter way to get it done</span><h1>{mode === 'login' ? 'Welcome back.' : 'Make room to grow.'}</h1><p>Keep your classes, resources and small wins in one thoughtful place.</p></div>
-        <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); }}>Sign in</button><button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setError(''); }}>Create account</button></div>
-        <form className="auth-form" onSubmit={submit}>
+        <div className="auth-copy"><span className="eyebrow">A quieter way to get it done</span><h1>{title}</h1><p>{subtitle}</p></div>
+        {isAuthMode ? <div className="auth-tabs"><button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); clearMessages(); }}>Sign in</button><button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); clearMessages(); }}>Create account</button></div> : <div className="auth-return"><button type="button" onClick={backToSignIn}><ArrowRight className="auth-back-icon" size={14} /> Back to sign in</button></div>}
+        {isAuthMode && <form className="auth-form" onSubmit={submitAuth}>
           {mode === 'register' && <label>Your name<input name="fullName" value={fields.fullName} onChange={update} placeholder="Alex Morgan" required autoComplete="name" /></label>}
           {mode === 'register' && <label>Username <span className="field-hint">optional</span><input name="username" value={fields.username} onChange={update} placeholder="alexmorgan" autoComplete="username" /></label>}
           <label>{mode === 'login' ? 'Email or username' : 'Email address'}<input name="identifier" value={fields.identifier} onChange={update} placeholder={mode === 'login' ? 'you@example.com or username' : 'you@example.com'} required autoComplete={mode === 'login' ? 'username' : 'email'} type={mode === 'register' ? 'email' : 'text'} /></label>
           <label>Password<input name="password" value={fields.password} onChange={update} placeholder="At least 6 characters" required minLength={mode === 'register' ? 6 : undefined} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
+          {mode === 'login' && <div className="auth-forgot-row"><button type="button" className="auth-link-button" onClick={showForgotPassword}>Forgot password?</button></div>}
           {error && <div className="inline-alert alert-error" role="alert">{error}</div>}
+          {notice && <div className="auth-success" role="status">{notice}</div>}
           <button className="button button-primary auth-submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" size={17} /> One moment…</> : <>{mode === 'login' ? 'Sign in to your space' : 'Create my space'} <ArrowRight size={17} /></>}</button>
-        </form>
+        </form>}
+        {mode === 'forgot' && <form className="auth-form" onSubmit={submitForgot}>
+          <label>Email address<input name="resetEmail" type="email" value={resetEmail} onChange={(event) => setResetEmail(event.target.value)} placeholder="you@example.com" required autoComplete="email" /></label>
+          {error && <div className="inline-alert alert-error" role="alert">{error}</div>}
+          {notice && <div className="auth-success" role="status">{notice}</div>}
+          <button className="button button-primary auth-submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" size={17} /> Sending…</> : <>Send reset link <ArrowRight size={17} /></>}</button>
+        </form>}
+        {mode === 'reset' && <form className="auth-form" onSubmit={submitReset}>
+          <label>New password<input name="password" type="password" value={fields.password} onChange={update} placeholder="At least 6 characters" required minLength={6} maxLength={72} autoComplete="new-password" /></label>
+          <label>Confirm new password<input name="confirmPassword" type="password" value={fields.confirmPassword} onChange={update} placeholder="Enter the same password again" required minLength={6} maxLength={72} autoComplete="new-password" /></label>
+          {error && <div className="inline-alert alert-error" role="alert">{error}</div>}
+          <button className="button button-primary auth-submit" disabled={busy}>{busy ? <><LoaderCircle className="spin" size={17} /> Updating…</> : <>Update password <ArrowRight size={17} /></>}</button>
+        </form>}
         <p className="auth-footnote"><Sparkles size={14} /> Made for steady progress, not perfect plans.</p>
       </section>
       <aside className="auth-side-note"><span>01 — MAKE A PLAN</span><span>02 — KEEP SHOWING UP</span><span>03 — NOTICE THE PROGRESS</span></aside>

@@ -43,6 +43,13 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
+    if (Number(decoded.tokenVersion ?? 0) !== Number(user.tokenVersion || 0)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your session is no longer valid. Please sign in again.',
+      });
+    }
+
     req.user = {
       id: user.id,
       email: user.email,
